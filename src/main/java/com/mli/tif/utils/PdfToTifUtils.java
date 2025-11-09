@@ -30,21 +30,6 @@ public class PdfToTifUtils {
     private static final int DEFAULT_DPI = 300;
 
     /**
-     * PDF → 多個單頁 TIF，打包成 ZIP（輸入 MultipartFile）
-     * @param file  PDF檔案 (上傳)
-     * @param dpi   解析度: 預設 300
-     * @param pageSize  頁面大小: 預設 A4
-     * @param isColor   使用彩色: 預設 false
-     */
-    public static byte[] convertPdfToSeparateTifsAsZip(MultipartFile file, Integer dpi, String pageSize, boolean isColor) throws IOException {
-        validateFile(file);
-        dpi = (dpi != null && dpi > 0) ? dpi : DEFAULT_DPI;
-
-        List<byte[]> tifPages = convertPdfToSeparateTifs(file.getBytes(), dpi, pageSize, isColor);
-        return createZipFromTifs(tifPages, file.getOriginalFilename());
-    }
-
-    /**
      * PDF → 多個單頁 TIF，打包成 ZIP（輸入 byte[]）
      * @param file  PDF檔案 (資料流)
      * @param dpi   解析度: 預設 300
@@ -56,19 +41,6 @@ public class PdfToTifUtils {
 
         List<byte[]> tifPages = convertPdfToSeparateTifs(file, dpi, pageSize, isColor);
         return createZipFromTifs(tifPages, "tifFile");
-    }
-
-    /**
-     * PDF → 單一多頁 TIF（輸入 MultipartFile）
-     * @param file  PDF檔案 (上傳)
-     * @param dpi   解析度: 預設 300
-     * @param pageSize  頁面大小: 預設 A4
-     * @param isColor   使用彩色: 預設 false
-     */
-    public static byte[] convertPdfToMultiPageTif(MultipartFile file, Integer dpi, String pageSize, boolean isColor) throws IOException {
-        validateFile(file);
-        dpi = (dpi != null && dpi > 0) ? dpi : DEFAULT_DPI;
-        return convertToMultiPageTif(file.getBytes(), dpi, pageSize, isColor);
     }
 
     /**

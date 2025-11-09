@@ -36,7 +36,7 @@ public class PdfToTifController {
             @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) {
 
         try {
-            byte[] zipBytes = PdfToTifUtils.convertPdfToSeparateTifsAsZip(file, dpi, pageSize, isColor);
+            byte[] zipBytes = PdfToTifUtils.convertPdfToSeparateTifsAsZip(file.getBytes(), dpi, pageSize, isColor);
             ByteArrayResource resource = new ByteArrayResource(zipBytes);
 
             HttpHeaders headers = new HttpHeaders();
@@ -69,7 +69,7 @@ public class PdfToTifController {
             @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) {
 
         try {
-            byte[] tifBytes = PdfToTifUtils.convertPdfToMultiPageTif(file, dpi, pageSize, isColor);
+            byte[] tifBytes = PdfToTifUtils.convertPdfToMultiPageTif(file.getBytes(), dpi, pageSize, isColor);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType("image/tiff"));
