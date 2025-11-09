@@ -1,9 +1,8 @@
 package com.mli.tif.controller;
 
-import com.mli.tif.service.PdfToTifService;
+import com.mli.tif.utils.PdfToTifUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,9 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/Tif")
 public class PdfToTifController {
 
-    @Autowired
-    private PdfToTifService pdfToTifService;
-
     /**
      * 將 PDF 所有頁面轉換為多個 TIF 檔案（一頁一個檔案）
      * 回傳 ZIP 壓縮檔包含所有 TIF 檔案
@@ -37,10 +33,10 @@ public class PdfToTifController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "dpi (預設 300)", required = false) Integer dpi,
             @RequestParam(value = "pageSize (預設 A4)", required = false) String pageSize,
-            @RequestParam(value = "色彩 (1.黑白(預設) / 2.彩色)", required = false) Integer colorMode) {
+            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) {
 
         try {
-            byte[] zipBytes = pdfToTifService.convertPdfToSeparateTifsAsZip(file, dpi, pageSize, colorMode);
+            byte[] zipBytes = PdfToTifUtils.convertPdfToSeparateTifsAsZip(file, dpi, pageSize, isColor);
             ByteArrayResource resource = new ByteArrayResource(zipBytes);
 
             HttpHeaders headers = new HttpHeaders();
@@ -70,10 +66,10 @@ public class PdfToTifController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "dpi (預設 300)", required = false) Integer dpi,
             @RequestParam(value = "pageSize (預設 A4)", required = false) String pageSize,
-            @RequestParam(value = "色彩 (1.黑白(預設) / 2.彩色)", required = false) Integer colorMode) {
+            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) {
 
         try {
-            byte[] tifBytes = pdfToTifService.convertPdfToMultiPageTif(file, dpi, pageSize, colorMode);
+            byte[] tifBytes = PdfToTifUtils.convertPdfToMultiPageTif(file, dpi, pageSize, isColor);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType("image/tiff"));
