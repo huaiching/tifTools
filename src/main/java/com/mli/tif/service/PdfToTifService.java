@@ -1,5 +1,7 @@
 package com.mli.tif.service;
 
+import com.mli.tif.constants.ColorMode;
+import com.mli.tif.constants.PageSize;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -32,43 +34,71 @@ public class PdfToTifService {
     private static final String DEFAULT_PAGE_SIZE = "A4";
 
     /**
-     * 色彩模式枚舉
+     * 將 PDF 的所有頁面分別轉換為多個單頁 TIF，並打包成 ZIP
+     *
+     * @param file  pdf檔案
+     * @param dpi   Dpi 預設 300
+     * @param pageSizeStr 頁面大小 預設 A4
+     * @param colorModeInt  顏色 1.黑白(預設) / 2.彩色
      */
-    public enum ColorMode {
-        COLOR,      // 彩色
-        GRAYSCALE   // 黑白（灰階）
+    public byte[] convertPdfToSeparateTifsAsZip(MultipartFile file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
+        validateFile(file);
+        int resolution = getResolution(dpi);
+        PageSize pageSize = parsePageSize(pageSizeStr);
+        ColorMode colorMode = parseColorMode(colorModeInt);
+
+        List<byte[]> tifPages = convertPdfToSeparateTifs(file.getBytes(), resolution, pageSize, colorMode);
+        return createZipFromTifs(tifPages, file.getOriginalFilename());
     }
 
     /**
-     * 頁面尺寸枚舉（單位：點，1英吋 = 72點）
+     * 將 PDF 的所有頁面分別轉換為多個單頁 TIF，並打包成 ZIP
+     *
+     * @param file  pdf檔案 (byte[])
+     * @param dpi   Dpi 預設 300
+     * @param pageSizeStr 頁面大小 預設 A4
+     * @param colorModeInt  顏色 1.黑白(預設) / 2.彩色
      */
-    public enum PageSize {
-        A4(595, 842),           // 210 x 297 mm
-        A3(842, 1191),          // 297 x 420 mm
-        A5(420, 595),           // 148 x 210 mm
-        LETTER(612, 792),       // 8.5 x 11 inch
-        LEGAL(612, 1008),       // 8.5 x 14 inch
-        TABLOID(792, 1224);     // 11 x 17 inch
+    public byte[] convertPdfToSeparateTifsAsZip(byte[] file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
+        int resolution = getResolution(dpi);
+        PageSize pageSize = parsePageSize(pageSizeStr);
+        ColorMode colorMode = parseColorMode(colorModeInt);
 
-        private final float width;
-        private final float height;
+        List<byte[]> tifPages = convertPdfToSeparateTifs(file, resolution, pageSize, colorMode);
+        return createZipFromTifs(tifPages, "tifFile");
+    }
 
-        PageSize(float width, float height) {
-            this.width = width;
-            this.height = height;
-        }
+    /**
+     * 將 PDF 的所有頁面轉換為單一多頁 TIF
+     *
+     * @param file  pdf檔案
+     * @param dpi   Dpi 預設 300
+     * @param pageSizeStr 頁面大小 預設 A4
+     * @param colorModeInt  顏色 1.黑白(預設) / 2.彩色
+     */
+    public byte[] convertPdfToMultiPageTif(MultipartFile file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
+        validateFile(file);
+        int resolution = getResolution(dpi);
+        PageSize pageSize = parsePageSize(pageSizeStr);
+        ColorMode colorMode = parseColorMode(colorModeInt);
 
-        public float getWidth() {
-            return width;
-        }
+        return convertToMultiPageTif(file.getBytes(), resolution, pageSize, colorMode);
+    }
 
-        public float getHeight() {
-            return height;
-        }
+    /**
+     * 將 PDF 的所有頁面轉換為單一多頁 TIF
+     *
+     * @param file  pdf檔案
+     * @param dpi   Dpi 預設 300
+     * @param pageSizeStr 頁面大小 預設 A4
+     * @param colorModeInt  顏色 1.黑白(預設) / 2.彩色
+     */
+    public byte[] convertPdfToMultiPageTif(byte[] file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
+        int resolution = getResolution(dpi);
+        PageSize pageSize = parsePageSize(pageSizeStr);
+        ColorMode colorMode = parseColorMode(colorModeInt);
 
-        public PDRectangle toPDRectangle() {
-            return new PDRectangle(width, height);
-        }
+        return convertToMultiPageTif(file, resolution, pageSize, colorMode);
     }
 
     /**
@@ -143,18 +173,6 @@ public class PdfToTifService {
         return grayscaleImage;
     }
 
-    /**
-     * 將 PDF 的所有頁面分別轉換為多個單頁 TIF，並打包成 ZIP
-     */
-    public byte[] convertPdfToSeparateTifsAsZip(MultipartFile file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
-        validateFile(file);
-        int resolution = getResolution(dpi);
-        PageSize pageSize = parsePageSize(pageSizeStr);
-        ColorMode colorMode = parseColorMode(colorModeInt);
-
-        List<byte[]> tifPages = convertPdfToSeparateTifs(file.getBytes(), resolution, pageSize, colorMode);
-        return createZipFromTifs(tifPages, file.getOriginalFilename());
-    }
 
     /**
      * 將 PDF 的所有頁面分別轉換為多個單頁 TIF
@@ -252,18 +270,6 @@ public class PdfToTifService {
         }
 
         return baos.toByteArray();
-    }
-
-    /**
-     * 將 PDF 的所有頁面轉換為單一多頁 TIF
-     */
-    public byte[] convertPdfToMultiPageTif(MultipartFile file, Integer dpi, String pageSizeStr, Integer colorModeInt) throws IOException {
-        validateFile(file);
-        int resolution = getResolution(dpi);
-        PageSize pageSize = parsePageSize(pageSizeStr);
-        ColorMode colorMode = parseColorMode(colorModeInt);
-
-        return convertToMultiPageTif(file.getBytes(), resolution, pageSize, colorMode);
     }
 
     /**
