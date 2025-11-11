@@ -5,6 +5,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 
 import javax.imageio.*;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -64,12 +65,7 @@ public class PdfToTiffUtil {
             PDFRenderer renderer = new PDFRenderer(document);
             ImageType imageType = color ? ImageType.RGB : ImageType.GRAY;
 
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("tif");
-            if (!writers.hasNext()) {
-                throw new RuntimeException("系統未安裝 TIFF writer");
-            }
-            ImageWriter writer = writers.next();
-
+            ImageWriter writer = ImageIO.getImageWritersByFormatName("tiff").next();
             try (MemoryCacheImageOutputStream mos = new MemoryCacheImageOutputStream(os)) {
                 writer.setOutput(mos);
 
@@ -79,18 +75,19 @@ public class PdfToTiffUtil {
                     param.setCompressionType("LZW");
                 }
 
-                int pageCount = document.getNumberOfPages();
-                if (pageCount == 0) return new byte[0];
-
                 writer.prepareWriteSequence(null);
 
+                int pageCount = document.getNumberOfPages();
                 for (int i = 0; i < pageCount; i++) {
                     BufferedImage image = renderer.renderImageWithDPI(i, 300, imageType);
+                    if (!color) {
+                        image = to8BitGrayscale(image);  // 重要！
+                    }
                     IIOImage iioImage = new IIOImage(image, null, null);
-                    writer.write(null, iioImage, param);
+                    writer.writeToSequence(iioImage, param);  // 全部用 writeToSequence
                 }
 
-                writer.endWriteSequence();  // 結束序列
+                writer.endWriteSequence();
             } finally {
                 writer.dispose();
             }
@@ -121,5 +118,13 @@ public class PdfToTiffUtil {
             }
             return os.toByteArray();
         }
+    }
+
+    private static BufferedImage to8BitGrayscale(BufferedImage src) {
+        BufferedImage gray8 = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = gray8.createGraphics();
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return gray8;
     }
 }
