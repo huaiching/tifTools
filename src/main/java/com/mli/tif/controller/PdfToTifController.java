@@ -33,7 +33,7 @@ public class PdfToTifController {
     @PostMapping(value = "/pdfToSeparateTifs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Resource> pdfToSeparateTifs(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) throws IOException {
+            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) throws Exception {
 
         byte[] fileByte = PdfToTiffUtil.pdfToSeparateTifs(file.getBytes(), isColor);
         String fileName = "output.zip";
@@ -59,7 +59,7 @@ public class PdfToTifController {
     @PostMapping(value = "/pdfToMultiPageTif", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Resource> pdfToMultiPageTif(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) throws IOException {
+            @RequestParam(value = "彩色模式: true.是 / false.否(預設)", required = false) boolean isColor) throws Exception {
 
         byte[] fileByte = PdfToTiffUtil.pdfToMultiPageTif(file.getBytes(), isColor);
         String fileName = "output.tif";

@@ -1,130 +1,319 @@
 package com.mli.tif.utils;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.rendering.ImageType;
-import org.apache.pdfbox.rendering.PDFRenderer;
 
-import javax.imageio.*;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
+import org.icepdf.core.pobjects.Document;
+import org.icepdf.core.pobjects.Page;
+import org.icepdf.core.util.GraphicsRenderingHints;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.*;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
+/**
+ * PDF 轉 TIFF 工具類 (使用 ICEpdf)
+ *
+ * Maven 依賴:
+ * <dependency>
+ *     <groupId>org.icepdf.os</groupId>
+ *     <artifactId>icepdf-core</artifactId>
+ *     <version>6.3.2</version>
+ * </dependency>
+ *
+ * <!-- 支援多頁 TIFF -->
+ * <dependency>
+ *     <groupId>com.github.jai-imageio</groupId>
+ *     <artifactId>jai-imageio-core</artifactId>
+ *     <version>1.4.0</version>
+ * </dependency>
+ */
 public class PdfToTiffUtil {
 
-    // ====================== 1. 每頁獨立 TIF ======================
+    private static final int DEFAULT_DPI = 300;
+
     /**
-     * PDF 每頁轉成獨立 TIF，並回傳 Map<String, byte[]>
+     * 將 PDF 所有頁面轉換為多個 TIF 檔案（一頁一個檔案）
      *
-     * @param pdfBytes   PDF 內容
-     * @param color      true=彩色, false=灰階
-     * @return ZIP bype[]
+     * @param file 上傳的 PDF 檔案
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 生成的 TIFF 字節數組列表，每個元素對應一頁
+     * @throws Exception 轉換異常
      */
-    public static byte[] pdfToSeparateTifs(byte[] pdfBytes, boolean color) throws IOException {
-        if (pdfBytes == null || pdfBytes.length == 0) {
-            throw new IllegalArgumentException("PDF bytes 不能為空");
+    public static List<byte[]> pdfToSeparateTifs(MultipartFile file, boolean colorMode) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("PDF 檔案不能為空");
         }
 
-        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(pdfBytes))) {
-            PDFRenderer renderer = new PDFRenderer(document);
-            ImageType imageType = color ? ImageType.RGB : ImageType.GRAY;
-
-            Map<String, byte[]> tifMap = new HashMap<>();
-            int pageCount = document.getNumberOfPages();
-
-            for (int i = 0; i < pageCount; i++) {
-                BufferedImage image = renderer.renderImageWithDPI(i, 300, imageType);
-                byte[] tifBytes = bufferedImageToTiffBytes(image); // 單頁轉換函式
-
-                String fileName = String.format("%s%03d.tif", "tifFile_", i + 1);
-                tifMap.put(fileName, tifBytes);
-            }
-
-            return ZipUtil.createZip(tifMap);
-        }
+        return pdfToSeparateTifs(file.getInputStream(), colorMode);
     }
 
-    // ====================== 2. 單一多頁 TIF ======================
     /**
-     * 所有頁面合成一個多頁 TIF
+     * 將 PDF 所有頁面轉換為多個 TIF 檔案（一頁一個檔案）
      *
-     * @param pdfBytes   PDF 內容
-     * @param color      true=彩色, false=灰階
-     * @return TIF byte[]
+     * @param pdfInputStream PDF 輸入流
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 生成的 TIFF 字節數組列表，每個元素對應一頁
+     * @throws Exception 轉換異常
      */
-    public static byte[] pdfToMultiPageTif(byte[] pdfBytes, boolean color) throws IOException {
-        if (pdfBytes == null || pdfBytes.length == 0) {
-            throw new IllegalArgumentException("PDF bytes 不能為空");
-        }
-
-        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(pdfBytes));
-             ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-
-            PDFRenderer renderer = new PDFRenderer(document);
-            ImageType imageType = color ? ImageType.RGB : ImageType.GRAY;
-
-            ImageWriter writer = ImageIO.getImageWritersByFormatName("tiff").next();
-            try (MemoryCacheImageOutputStream mos = new MemoryCacheImageOutputStream(os)) {
-                writer.setOutput(mos);
-
-                ImageWriteParam param = writer.getDefaultWriteParam();
-                if (param.canWriteCompressed()) {
-                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                    param.setCompressionType("LZW");
+    public static List<byte[]> pdfToSeparateTifs(InputStream pdfInputStream, boolean colorMode) throws Exception {
+        // 臨時保存 PDF
+        File tempPdf = File.createTempFile("temp_pdf_", ".pdf");
+        try {
+            try (FileOutputStream fos = new FileOutputStream(tempPdf)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = pdfInputStream.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
                 }
-
-                writer.prepareWriteSequence(null);
-
-                int pageCount = document.getNumberOfPages();
-                for (int i = 0; i < pageCount; i++) {
-                    BufferedImage image = renderer.renderImageWithDPI(i, 300, imageType);
-                    if (!color) {
-                        image = to8BitGrayscale(image);  // 重要！
-                    }
-                    IIOImage iioImage = new IIOImage(image, null, null);
-                    writer.writeToSequence(iioImage, param);  // 全部用 writeToSequence
-                }
-
-                writer.endWriteSequence();
-            } finally {
-                writer.dispose();
             }
-            return os.toByteArray();
+
+            List<BufferedImage> images = renderPdfToImages(tempPdf.getAbsolutePath(), DEFAULT_DPI);
+            List<byte[]> tiffBytesList = new ArrayList<>();
+
+            for (BufferedImage image : images) {
+                // 根據彩色模式轉換圖片
+                BufferedImage processedImage = colorMode ? image : convertToGrayscale(image);
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                    writeSinglePageTiff(processedImage, ios);
+                }
+                tiffBytesList.add(baos.toByteArray());
+            }
+
+            return tiffBytesList;
+
+        } finally {
+            if (tempPdf.exists()) {
+                tempPdf.delete();
+            }
         }
     }
 
-    // ====================== 內部共用：單頁 BufferedImage → TIFF byte[] ======================
-    private static byte[] bufferedImageToTiffBytes(BufferedImage image) throws IOException {
-        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("tiff");
-            if (!writers.hasNext()) throw new RuntimeException("TIFF writer not found");
+    /**
+     * 將 PDF 所有頁面轉換為多個 TIF 檔案（一頁一個檔案）
+     *
+     * @param pdfFile PDF 檔案
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 生成的 TIFF 字節數組列表，每個元素對應一頁
+     * @throws Exception 轉換異常
+     */
+    public static List<byte[]> pdfToSeparateTifs(File pdfFile, boolean colorMode) throws Exception {
+        return pdfToSeparateTifs(new FileInputStream(pdfFile), colorMode);
+    }
 
-            ImageWriter writer = writers.next();
-            try (MemoryCacheImageOutputStream mos = new MemoryCacheImageOutputStream(os)) {
-                writer.setOutput(mos);
+    /**
+     * 將 PDF 所有頁面轉換為多個 TIF 檔案（一頁一個檔案）
+     *
+     * @param pdfBytes PDF 字節數組
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 生成的 TIFF 字節數組列表，每個元素對應一頁
+     * @throws Exception 轉換異常
+     */
+    public static List<byte[]> pdfToSeparateTifs(byte[] pdfBytes, boolean colorMode) throws Exception {
+        return pdfToSeparateTifs(new ByteArrayInputStream(pdfBytes), colorMode);
+    }
 
-                ImageWriteParam param = writer.getDefaultWriteParam();
-                if (param.canWriteCompressed()) {
-                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                    param.setCompressionType("LZW");
+    /**
+     * 將 PDF 所有頁面轉換為單一多頁 TIF 檔案
+     *
+     * @param file 上傳的 PDF 檔案
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 多頁 TIFF 字節數組
+     * @throws Exception 轉換異常
+     */
+    public static byte[] pdfToMultiPageTif(MultipartFile file, boolean colorMode) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("PDF 檔案不能為空");
+        }
+
+        return pdfToMultiPageTif(file.getInputStream(), colorMode);
+    }
+
+    /**
+     * 將 PDF 所有頁面轉換為單一多頁 TIF 檔案
+     *
+     * @param pdfInputStream PDF 輸入流
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 多頁 TIFF 字節數組
+     * @throws Exception 轉換異常
+     */
+    public static byte[] pdfToMultiPageTif(InputStream pdfInputStream, boolean colorMode) throws Exception {
+        // 臨時保存 PDF
+        File tempPdf = File.createTempFile("temp_pdf_", ".pdf");
+        try {
+            try (FileOutputStream fos = new FileOutputStream(tempPdf)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = pdfInputStream.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
                 }
-
-                IIOImage iioImage = new IIOImage(image, null, null);
-                writer.write(null, iioImage, param);
-            } finally {
-                writer.dispose();
             }
-            return os.toByteArray();
+
+            List<BufferedImage> images = renderPdfToImages(tempPdf.getAbsolutePath(), DEFAULT_DPI);
+
+            // 根據彩色模式轉換圖片
+            List<BufferedImage> processedImages = new ArrayList<>();
+            for (BufferedImage image : images) {
+                processedImages.add(colorMode ? image : convertToGrayscale(image));
+            }
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                writeMultiPageTiff(processedImages, ios);
+            }
+
+            return baos.toByteArray();
+
+        } finally {
+            if (tempPdf.exists()) {
+                tempPdf.delete();
+            }
         }
     }
 
-    private static BufferedImage to8BitGrayscale(BufferedImage src) {
-        BufferedImage gray8 = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-        Graphics2D g = gray8.createGraphics();
-        g.drawImage(src, 0, 0, null);
-        g.dispose();
-        return gray8;
+    /**
+     * 將 PDF 所有頁面轉換為單一多頁 TIF 檔案
+     *
+     * @param pdfFile PDF 檔案
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 多頁 TIFF 字節數組
+     * @throws Exception 轉換異常
+     */
+    public static byte[] pdfToMultiPageTif(File pdfFile, boolean colorMode) throws Exception {
+        return pdfToMultiPageTif(new FileInputStream(pdfFile), colorMode);
+    }
+
+    /**
+     * 將 PDF 所有頁面轉換為單一多頁 TIF 檔案
+     *
+     * @param pdfBytes PDF 字節數組
+     * @param colorMode 彩色模式: true=彩色, false=黑白(預設)
+     * @return 多頁 TIFF 字節數組
+     * @throws Exception 轉換異常
+     */
+    public static byte[] pdfToMultiPageTif(byte[] pdfBytes, boolean colorMode) throws Exception {
+        return pdfToMultiPageTif(new ByteArrayInputStream(pdfBytes), colorMode);
+    }
+
+    /**
+     * 使用 ICEpdf 渲染 PDF 為圖片列表
+     */
+    private static List<BufferedImage> renderPdfToImages(String pdfPath, int dpi) {
+        Document document = new Document();
+        List<BufferedImage> images = new ArrayList<>();
+
+        try {
+            document.setFile(pdfPath);
+
+            // 計算縮放比例
+            float scale = dpi / 72f; // 72 是 PDF 的默認 DPI
+            float rotation = 0f;
+
+            // 渲染每一頁
+            for (int i = 0; i < document.getNumberOfPages(); i++) {
+                BufferedImage image = (BufferedImage) document.getPageImage(
+                        i,
+                        GraphicsRenderingHints.SCREEN,
+                        Page.BOUNDARY_CROPBOX,
+                        rotation,
+                        scale
+                );
+                images.add(image);
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("PDF 渲染失敗", e);
+        } finally {
+            document.dispose();
+        }
+
+        return images;
+    }
+
+    /**
+     * 將彩色圖片轉換為灰階（黑白）
+     */
+    private static BufferedImage convertToGrayscale(BufferedImage colorImage) {
+        BufferedImage grayImage = new BufferedImage(
+                colorImage.getWidth(),
+                colorImage.getHeight(),
+                BufferedImage.TYPE_BYTE_GRAY
+        );
+
+        Graphics2D g2d = grayImage.createGraphics();
+        g2d.drawImage(colorImage, 0, 0, null);
+        g2d.dispose();
+
+        return grayImage;
+    }
+
+    /**
+     * 寫入單頁 TIFF
+     */
+    private static void writeSinglePageTiff(BufferedImage image, ImageOutputStream ios) throws IOException {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("TIFF");
+        if (!writers.hasNext()) {
+            throw new IllegalStateException("找不到 TIFF ImageWriter");
+        }
+
+        ImageWriter writer = writers.next();
+        writer.setOutput(ios);
+
+        ImageWriteParam writeParam = writer.getDefaultWriteParam();
+        if (writeParam.canWriteCompressed()) {
+            writeParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            writeParam.setCompressionType("LZW");
+            writeParam.setCompressionQuality(1.0f);
+        }
+
+        try {
+            writer.write(null, new IIOImage(image, null, null), writeParam);
+        } finally {
+            writer.dispose();
+        }
+    }
+
+    /**
+     * 寫入多頁 TIFF
+     */
+    private static void writeMultiPageTiff(List<BufferedImage> images, ImageOutputStream ios) throws IOException {
+        if (images == null || images.isEmpty()) {
+            throw new IllegalArgumentException("圖片列表不能為空");
+        }
+
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("TIFF");
+        if (!writers.hasNext()) {
+            throw new IllegalStateException("找不到 TIFF ImageWriter");
+        }
+
+        ImageWriter writer = writers.next();
+        writer.setOutput(ios);
+
+        ImageWriteParam writeParam = writer.getDefaultWriteParam();
+        if (writeParam.canWriteCompressed()) {
+            writeParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            writeParam.setCompressionType("LZW");
+            writeParam.setCompressionQuality(1.0f);
+        }
+
+        try {
+            writer.prepareWriteSequence(null);
+
+            for (BufferedImage image : images) {
+                writer.writeToSequence(new IIOImage(image, null, null), writeParam);
+            }
+
+            writer.endWriteSequence();
+        } finally {
+            writer.dispose();
+        }
     }
 }
