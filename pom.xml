@@ -52,18 +52,18 @@
             <artifactId>swagger-ui</artifactId>
             <version>5.11.10</version>
         </dependency>
-        <dependency>
-            <groupId>org.icepdf.os</groupId>
-            <artifactId>icepdf-core</artifactId>
-            <version>6.2.2</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.icepdf.os</groupId>-->
+<!--            <artifactId>icepdf-core</artifactId>-->
+<!--            <version>6.2.2</version>-->
+<!--        </dependency>-->
 
-        <!-- 支援多頁 TIFF -->
-        <dependency>
-            <groupId>com.github.jai-imageio</groupId>
-            <artifactId>jai-imageio-core</artifactId>
-            <version>1.4.0</version>
-        </dependency>
+<!--        &lt;!&ndash; 支援多頁 TIFF &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>com.github.jai-imageio</groupId>-->
+<!--            <artifactId>jai-imageio-core</artifactId>-->
+<!--            <version>1.4.0</version>-->
+<!--        </dependency>-->
 	</dependencies>
 
 	<build>
