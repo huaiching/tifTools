@@ -1,45 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.18</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.mli</groupId>
-	<artifactId>tif</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>tif</name>
-	<description>tif 檔案產生工具</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>11</java.version>
-	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.mli</groupId>
+    <artifactId>tif</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>tif</name>
+    <description>tif 檔案產生工具</description>
+    <url/>
+    <licenses>
+        <license/>
+    </licenses>
+    <developers>
+        <developer/>
+    </developers>
+    <scm>
+        <connection/>
+        <developerConnection/>
+        <tag/>
+        <url/>
+    </scm>
+    <properties>
+        <java.version>11</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!--  Swagger Doc -->
         <dependency>
@@ -52,27 +52,95 @@
             <artifactId>swagger-ui</artifactId>
             <version>5.11.10</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.icepdf.os</groupId>-->
-<!--            <artifactId>icepdf-core</artifactId>-->
-<!--            <version>6.2.2</version>-->
-<!--        </dependency>-->
+        <!-- ICE PDF - PDF 處理 -->
+        <dependency>
+            <groupId>org.icepdf.os</groupId>
+            <artifactId>icepdf-core</artifactId>
+            <version>6.2.2</version>
+            <exclusions>
+                <!-- 排除舊的 JAI 依賴 -->
+                <exclusion>
+                    <groupId>javax.media</groupId>
+                    <artifactId>jai_core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
-<!--        &lt;!&ndash; 支援多頁 TIFF &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>com.github.jai-imageio</groupId>-->
-<!--            <artifactId>jai-imageio-core</artifactId>-->
-<!--            <version>1.4.0</version>-->
-<!--        </dependency>-->
-	</dependencies>
+        <!-- 支援多頁 TIFF - 使用 TwelveMonkeys 替代 JAI -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>3.10.1</version>
+        </dependency>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>3.10.1</version>
+        </dependency>
+
+        <!-- 如果需要處理 JPEG 圖片 -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-jpeg</artifactId>
+            <version>3.10.1</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Spring Boot Maven Plugin -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Launch4j Maven Plugin - 產生 Windows EXE -->
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.1</version>
+                <executions>
+                    <execution>
+                        <id>l4j-clui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <!-- 輸出的 EXE 檔名 -->
+                            <outfile>${project.build.directory}/tif-tool.exe</outfile>
+
+                            <!-- 指定要包裝的 JAR -->
+                            <jar>${project.build.directory}/${project.artifactId}-${project.version}.jar</jar>
+
+                            <!-- 視窗類型: gui (圖形介面) 或 console (命令列) -->
+                            <!-- Spring Boot Web 應用建議用 console 可以看到日誌 -->
+                            <headerType>console</headerType>
+
+                            <!-- JRE 設定 -->
+                            <jre>
+                                <minVersion>11.0.0</minVersion>
+                                <maxHeapSize>1024</maxHeapSize>
+                            </jre>
+
+                            <!-- 版本資訊 -->
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0.0</txtFileVersion>
+                                <fileDescription>TIF 檔案產生工具</fileDescription>
+                                <copyright>Copyright © 2024</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0.0</txtProductVersion>
+                                <productName>TIF Tool</productName>
+                                <internalName>tif-tool</internalName>
+                                <originalFilename>tif-tool.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
